@@ -147,10 +147,10 @@ label {
 
 /* Banner Styling */
 #app-banner {
-    background-color: #343a40; /* A dark Bootstrap color, or choose another */
-    color: white;
-    padding: 2rem 1rem; /* More padding, using rem units */
-    margin-bottom: 1.5rem; /* Space below banner */
+    background-color: #d4edda; /* Light green */
+    color: #0f5132; /* Dark green text for contrast - similar to Bootstrap's .alert-success text */
+    padding: 2rem 1rem; 
+    margin-bottom: 1.5rem; 
 }
 
 #app-banner h1.display-4 { /* Target the h1 specifically */

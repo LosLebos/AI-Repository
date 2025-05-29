@@ -925,9 +925,17 @@ function displayEndProductSelection() {
     uniqueOutputGoods.forEach(goodName => {
         const button = document.createElement('button');
         button.textContent = goodName;
-        button.className = "btn btn-outline-secondary btn-md m-1"; 
-        button.addEventListener('click', () => {
+        button.className = "btn btn-outline-secondary btn-md m-1"; // Default class
+        button.addEventListener('click', (event) => { // event argument
             console.log(`End product selected: ${goodName}`);
+            
+            // Highlight logic:
+            const allEndProductButtons = selectionDiv.querySelectorAll('button');
+            allEndProductButtons.forEach(btn => {
+                btn.className = "btn btn-outline-secondary btn-md m-1";
+            });
+            event.currentTarget.className = "btn btn-success btn-md m-1"; // Highlight clicked button
+
             currentProductionChain = []; 
             const quantityInput = document.getElementById('final-product-quantity');
             const desiredQuantity = parseInt(quantityInput.value) || 1;
@@ -1061,18 +1069,30 @@ function displayProductionMethodsForGood(goodName, level, parentRequirementId) {
         if (chainEntry.education_required) {
             button.textContent += ` (${chainEntry.education_required})`;
         }
-        button.className = "btn btn-secondary btn-md m-1"; 
-        button.addEventListener('click', () => {
+        button.className = "btn btn-secondary btn-md m-1"; // Default class
+        button.addEventListener('click', (event) => { // event argument
             console.log(`Selected method for ${goodName} (L${level}): ${chainEntry.name} (ID: ${chainEntry.id})`);
+
+            // Highlight logic:
+            const allMethodButtons = cardBody.querySelectorAll('button');
+            allMethodButtons.forEach(btn => {
+                btn.className = "btn btn-secondary btn-md m-1";
+            });
+            event.currentTarget.className = "btn btn-success btn-md m-1"; // Highlight clicked button
             
             let requiredQtyForThisStep;
-            const stepEntry = currentProductionChain.find(s => s.level === level && s.targetGood === goodName && JSON.stringify(s.satisfiesInputForParent) === JSON.stringify(parentRequirementId));
-
+            // The logic for requiredQtyForThisStep was slightly different in the prompt,
+            // ensuring it uses the current value from the input for level 0, or the existing value for other levels.
+            // The original line from the prompt is:
+            // const desiredQuantity = (level === 0 && quantityInput) ? (parseInt(quantityInput.value) || 1) : currentProductionChain.find(s => s.level === level && s.targetGood === goodName && s.satisfiesInputForParent === parentRequirementId)?.requiredOutputQuantity || 1;
+            // This will be adapted to:
             if (level === 0) {
                 const quantityInput = document.getElementById('final-product-quantity');
                 requiredQtyForThisStep = (quantityInput) ? (parseInt(quantityInput.value) || 1) : 1;
             } else {
-                requiredQtyForThisStep = stepEntry ? stepEntry.requiredOutputQuantity : 0; 
+                // Find the step being configured to get its existing requiredOutputQuantity if available
+                const stepEntry = currentProductionChain.find(s => s.level === level && s.targetGood === goodName && JSON.stringify(s.satisfiesInputForParent) === JSON.stringify(parentRequirementId));
+                requiredQtyForThisStep = stepEntry ? stepEntry.requiredOutputQuantity : 1; // Default to 1 if not found, though it should be there.
             }
 
             updateChainConfiguration(level, chainEntry.id, goodName, requiredQtyForThisStep, parentRequirementId, true);
