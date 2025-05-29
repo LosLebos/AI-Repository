@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap'); /* Example: Montserrat */
+
 body {
     font-family: sans-serif;
     line-height: 1.6;
@@ -24,27 +26,6 @@ h2 {
     padding-bottom: 5px;
 }
 
-#input-section, #controls-section, #output-section {
-    margin-bottom: 20px;
-    padding: 15px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    background-color: #f9f9f9;
-}
-
-/* Placeholder styling for differentiation */
-#input-section {
-    border-left: 5px solid #3498db; /* Blue */
-}
-
-#controls-section {
-    border-left: 5px solid #f1c40f; /* Yellow */
-}
-
-#output-section {
-    border-left: 5px solid #2ecc71; /* Green */
-}
-
 /* Added styles for chain configuration UI */
 #chain-config-area {
     background-color: #f9f9f9;
@@ -61,6 +42,7 @@ h2 {
     margin-top: 10px;
 }
 
+/*
 #end-product-selection-buttons button,
 #chain-steps-container button {
     background-color: #3498db;
@@ -77,9 +59,11 @@ h2 {
 #chain-steps-container button:hover {
     background-color: #2980b9;
 }
+*/
 
-/* Styling for containers of choices at each level */
-#chain-steps-container > div[id^="level-"] { /* Targets divs whose ID starts with "level-" */
+/* Styling for containers of choices at each level - REPLACED BY BOOTSTRAP CARDS */
+/*
+#chain-steps-container > div[id^="level-"] { 
     border: 1px dashed #bdc3c7;
     padding: 10px;
     margin-top: 15px;
@@ -87,27 +71,38 @@ h2 {
     border-radius: 4px;
 }
 
-#chain-steps-container > div[id^="level-"] h3 {
+#chain-steps-container > div[id^="level-"] h3 { 
     font-size: 1.1em;
     color: #2c3e50;
     margin-top: 0;
 }
+*/
 
+/* Optional: Add any specific tweaks for cards if Bootstrap defaults aren't enough */
+.card-header h5 { /* If using h5 in card-header */
+    font-weight: bold; /* Example: make card titles bold */
+}
+#chain-steps-container .card { /* Add a bit more bottom margin to each card */
+    margin-bottom: 1rem;
+}
+
+/*
 #calculate-chain-button {
-    background-color: #2ecc71; /* Green */
+    background-color: #2ecc71; 
     color: white;
     border: none;
     padding: 12px 20px;
     font-size: 1.1em;
     border-radius: 5px;
     cursor: pointer;
-    display: block; /* Make it take its own line */
-    margin: 20px auto 10px auto; /* Center it somewhat */
+    display: block; 
+    margin: 20px auto 10px auto; 
 }
 
 #calculate-chain-button:hover {
     background-color: #27ae60;
 }
+*/
 
 #calculation-results-area {
     background-color: #fff;
@@ -148,4 +143,18 @@ h2 {
 label {
     font-weight: bold;
     margin-right: 5px;
+}
+
+/* Banner Styling */
+#app-banner {
+    background-color: #343a40; /* A dark Bootstrap color, or choose another */
+    color: white;
+    padding: 2rem 1rem; /* More padding, using rem units */
+    margin-bottom: 1.5rem; /* Space below banner */
+}
+
+#app-banner h1.display-4 { /* Target the h1 specifically */
+    font-family: 'Montserrat', sans-serif; /* Apply the imported font */
+    font-weight: 700; /* Ensure bold weight is used if available */
+    margin-bottom: 0; /* Remove default h1 margin if needed */
 }

@@ -925,7 +925,7 @@ function displayEndProductSelection() {
     uniqueOutputGoods.forEach(goodName => {
         const button = document.createElement('button');
         button.textContent = goodName;
-        button.style.margin = "5px";
+        button.className = "btn btn-outline-secondary btn-md m-1"; 
         button.addEventListener('click', () => {
             console.log(`End product selected: ${goodName}`);
             currentProductionChain = []; 
@@ -945,6 +945,7 @@ function displayProductionMethodsForGood(goodName, level, parentRequirementId) {
     console.log(`Displaying production methods for ${goodName} at level ${level}, parentReqId: ${JSON.stringify(parentRequirementId)}`);
     const chainStepsContainer = document.getElementById('chain-steps-container');
 
+    // Create or find a container for this specific choice
     let containerIdSuffix;
     if (parentRequirementId) {
         const pGood = (parentRequirementId.parentGood || 'unknownParentGood').replace(/\W/g, '_');
@@ -957,12 +958,14 @@ function displayProductionMethodsForGood(goodName, level, parentRequirementId) {
     let levelContainerId = `level-${level}-choices-for-${containerIdSuffix}`;
     
     let levelContainer = document.getElementById(levelContainerId);
-    if (!levelContainer) {
+
+    // Clear previous content if any (important if re-displaying this level)
+    if (levelContainer) {
+        levelContainer.innerHTML = ''; 
+    } else {
         levelContainer = document.createElement('div');
         levelContainer.id = levelContainerId;
-        levelContainer.style.border = "1px solid #ccc";
-        levelContainer.style.padding = "10px";
-        levelContainer.style.marginTop = "10px";
+        levelContainer.className = 'card mt-3'; 
         
         if (level === 0) {
             chainStepsContainer.appendChild(levelContainer);
@@ -977,42 +980,75 @@ function displayProductionMethodsForGood(goodName, level, parentRequirementId) {
             const parentGoodForDOM = (parentRequirementId.parentGood || 'unknownParentGood').replace(/\W/g, '_');
             parentContainerDOMId = `level-${level-1}-choices-for-${parentParentSuffix}${parentGoodForDOM}`;
 
-            const parentDiv = document.getElementById(parentContainerDOMId);
-            if (parentDiv) {
-                parentDiv.appendChild(levelContainer);
+            const parentCard = document.getElementById(parentContainerDOMId);
+
+            if (parentCard) {
+                let parentCardBody = parentCard.querySelector('.card-body');
+                if (!parentCardBody) { 
+                    console.warn("Parent card body not found, creating one for parent: ", parentCard.id);
+                    parentCardBody = document.createElement('div');
+                    parentCardBody.className = 'card-body';
+                    parentCard.appendChild(parentCardBody);
+                }
+                parentCardBody.appendChild(levelContainer);
             } else {
-                 console.warn(`Parent div ${parentContainerDOMId} not found for level ${level}. Appending to main container.`);
+                 console.warn(`Parent card div ${parentContainerDOMId} not found for level ${level}. Appending to main container.`);
                  chainStepsContainer.appendChild(levelContainer); 
             }
         } else {
              chainStepsContainer.appendChild(levelContainer); 
         }
     }
-    levelContainer.innerHTML = ''; 
+    
+    // Card Header for the prompt
+    const cardHeader = document.createElement('div');
+    cardHeader.className = 'card-header';
+    const promptEl = document.createElement('h5'); 
+    promptEl.className = 'mb-0'; 
+    
+    let promptTextVal = `Select method to produce ${goodName}`;
+    if (parentRequirementId) {
+        const parentBuildingInfo = productionChains.find(pc => pc.id === parentRequirementId.parentBuildingId);
+        const parentBuildingName = parentBuildingInfo ? parentBuildingInfo.name : parentRequirementId.parentBuildingId;
+        promptTextVal += ` (as input for ${parentBuildingName} making ${parentRequirementId.parentGood})`;
+    } else {
+        promptTextVal += ' (Final Product)';
+    }
+    promptEl.textContent = promptTextVal;
+    cardHeader.appendChild(promptEl);
+    levelContainer.appendChild(cardHeader);
 
+    // Card Body for the buttons
+    const cardBody = document.createElement('div');
+    cardBody.className = 'card-body';
+    levelContainer.appendChild(cardBody);
+    
+    // Clear UI for subsequent levels (deeper than current)
     const allChoiceContainers = chainStepsContainer.querySelectorAll('div[id^="level-"]');
     allChoiceContainers.forEach(container => {
         const containerLevel = parseInt(container.id.split('-')[1]);
         if (containerLevel > level) { 
-             if(container.id.startsWith(levelContainerId) && container.id !== levelContainerId){ 
-                container.remove();
-             } else if (!container.id.startsWith(levelContainerId.substring(0, levelContainerId.lastIndexOf(`-for-`)+5 ) )) {
-             } else if (containerLevel > level) {
+            let currentAncestor = container.parentElement;
+            let isDescendant = false;
+            while(currentAncestor && currentAncestor !== chainStepsContainer) {
+                // If the container is a direct child of the card-body of the current levelContainer, it's a descendant.
+                if (currentAncestor.classList && currentAncestor.classList.contains('card-body') && currentAncestor.parentElement.id === levelContainerId) {
+                    isDescendant = true;
+                    break;
+                }
+                currentAncestor = currentAncestor.parentElement;
+            }
+            if (isDescendant) { 
                  container.remove();
-             }
+            }
         }
     });
 
 
-    const promptText = `Select method to produce ${goodName} ${parentRequirementId ? `(as input for ${productionChains.find(pc => pc.id === parentRequirementId.parentBuildingId)?.name || parentRequirementId.parentBuildingId} making ${parentRequirementId.parentGood})` : '(Final Product)'}`;
-    const prompt = document.createElement('h3');
-    prompt.textContent = promptText;
-    levelContainer.appendChild(prompt);
-
     const matchingChains = productionChains.filter(chain => chain.output && chain.output.good === goodName);
 
     if (matchingChains.length === 0) {
-        levelContainer.innerHTML += `<p style="color:orange;">No direct production method found for ${goodName}. This will be an unmet demand unless imported.</p>`;
+        cardBody.innerHTML = `<p class="text-muted">No direct production method found for ${goodName}. This will be an unmet demand unless imported.</p>`;
         updateChainConfiguration(level, null, goodName, 
             currentProductionChain.find(s => s.level === level && s.targetGood === goodName && JSON.stringify(s.satisfiesInputForParent) === JSON.stringify(parentRequirementId))?.requiredOutputQuantity || 0, 
             parentRequirementId, true);
@@ -1025,7 +1061,7 @@ function displayProductionMethodsForGood(goodName, level, parentRequirementId) {
         if (chainEntry.education_required) {
             button.textContent += ` (${chainEntry.education_required})`;
         }
-        button.style.margin = "5px";
+        button.className = "btn btn-secondary btn-md m-1"; 
         button.addEventListener('click', () => {
             console.log(`Selected method for ${goodName} (L${level}): ${chainEntry.name} (ID: ${chainEntry.id})`);
             
@@ -1074,7 +1110,7 @@ function displayProductionMethodsForGood(goodName, level, parentRequirementId) {
                  console.log(`${chainEntry.name} has no further inputs. End of this branch.`);
             }
         });
-        levelContainer.appendChild(button);
+        cardBody.appendChild(button); 
     });
 }
 
