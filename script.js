@@ -847,55 +847,53 @@ function updateChainConfiguration(level, buildingId, targetGood, requiredOutputQ
     console.log("updateChainConfiguration called with:", { level, buildingId, targetGood, requiredOutputQuantity, satisfiesInputForParent, isUpdate });
 
     let stepIndex = -1;
-    if (isUpdate) {
-         stepIndex = currentProductionChain.findIndex(step => 
-            step.level === level && 
-            step.targetGood === targetGood && 
-            JSON.stringify(step.satisfiesInputForParent) === JSON.stringify(satisfiesInputForParent) 
-        );
-    } else { 
-        stepIndex = currentProductionChain.findIndex(step => 
-            step.level === level && 
-            step.targetGood === targetGood &&
-            JSON.stringify(step.satisfiesInputForParent) === JSON.stringify(satisfiesInputForParent)
-        );
-    }
+    // For isUpdate, we need a more specific match if multiple steps at the same level target the same good (e.g. for different parents)
+    // Also, when adding a new step (isUpdate = false), we still want to find if a placeholder for this exact step already exists.
+    stepIndex = currentProductionChain.findIndex(step => 
+        step.level === level && 
+        step.targetGood === targetGood && 
+        JSON.stringify(step.satisfiesInputForParent) === JSON.stringify(satisfiesInputForParent)
+    );
 
-
-    if (stepIndex !== -1) { 
+    if (stepIndex !== -1) { // Existing step found (either for update or it's a re-selection for a new step placeholder)
         const existingStep = currentProductionChain[stepIndex];
-        existingStep.buildingId = buildingId !== undefined ? buildingId : existingStep.buildingId;
+        existingStep.buildingId = buildingId !== undefined ? buildingId : existingStep.buildingId; // Update buildingId if provided
         existingStep.requiredOutputQuantity = requiredOutputQuantity !== undefined ? requiredOutputQuantity : existingStep.requiredOutputQuantity;
-        existingStep.satisfiesInputForParent = satisfiesInputForParent !== undefined ? satisfiesInputForParent : existingStep.satisfiesInputForParent; 
-
+        // Ensure all new fields are present and old ones are handled/removed
         existingStep.isHighSchoolWorkers = existingStep.isHighSchoolWorkers || false;
-        existingStep.actualOutputAtFullEfficiency = existingStep.actualOutputAtFullEfficiency || 0;
-        existingStep.requiredEfficiencyPercent = existingStep.requiredEfficiencyPercent || 0;
+        existingStep.inputsForThisStep = existingStep.inputsForThisStep || [];
+        existingStep.profitForThisStep = existingStep.profitForThisStep || 0;
         
-        if (existingStep.hasOwnProperty('workersForThisStep')) { // Legacy field
-            existingStep.originalWorkersAtFullEfficiency = existingStep.workersForThisStep;
-            delete existingStep.workersForThisStep;
-        }
-        existingStep.originalWorkersAtFullEfficiency = existingStep.originalWorkersAtFullEfficiency || 0;
-        existingStep.adjustedWorkersForTargetOutput = existingStep.adjustedWorkersForTargetOutput || 0;
-        
-        console.log(`Updated step at level ${level}:`, existingStep);
+        existingStep.workersNeededForStepOutput = existingStep.workersNeededForStepOutput || 0;
+        existingStep.numBuildingsForStep = existingStep.numBuildingsForStep || 0;
+        existingStep.maxOutputIfFullyStaffed = existingStep.maxOutputIfFullyStaffed || 0;
+        existingStep.buildingCapacityUtilization = existingStep.buildingCapacityUtilization || 0;
 
-    } else { 
+        // Remove old fields if they exist
+        delete existingStep.numBuildings;
+        delete existingStep.originalWorkersAtFullEfficiency;
+        delete existingStep.actualOutputAtFullEfficiency;
+        delete existingStep.requiredEfficiencyPercent;
+        delete existingStep.adjustedWorkersForTargetOutput;
+        
+        console.log(`Updated/Reconfirmed step at level ${level}:`, existingStep);
+
+    } else { // Add new step, as no exact placeholder was found or it's a genuinely new branch
         const newStep = {
             level,
-            buildingId,
+            buildingId, // Can be null initially if only good is selected
             targetGood,
             requiredOutputQuantity,
             satisfiesInputForParent,
-            numBuildings: 0,
-            originalWorkersAtFullEfficiency: 0, 
             inputsForThisStep: [],
-            profitForThisStep: 0,
-            isHighSchoolWorkers: false,
-            actualOutputAtFullEfficiency: 0,
-            requiredEfficiencyPercent: 0,
-            adjustedWorkersForTargetOutput: 0
+            profitForThisStep: 0, 
+            isHighSchoolWorkers: false, 
+
+            // NEW/RENAMED STRUCTURE with defaults
+            workersNeededForStepOutput: 0,
+            numBuildingsForStep: 0,
+            maxOutputIfFullyStaffed: 0,
+            buildingCapacityUtilization: 0
         };
         currentProductionChain.push(newStep);
         currentProductionChain.sort((a, b) => a.level - b.level); 
@@ -925,16 +923,15 @@ function displayEndProductSelection() {
     uniqueOutputGoods.forEach(goodName => {
         const button = document.createElement('button');
         button.textContent = goodName;
-        button.className = "btn btn-outline-secondary btn-md m-1"; // Default class
-        button.addEventListener('click', (event) => { // event argument
+        button.className = "btn btn-outline-secondary btn-md m-1"; 
+        button.addEventListener('click', (event) => { 
             console.log(`End product selected: ${goodName}`);
             
-            // Highlight logic:
             const allEndProductButtons = selectionDiv.querySelectorAll('button');
             allEndProductButtons.forEach(btn => {
                 btn.className = "btn btn-outline-secondary btn-md m-1";
             });
-            event.currentTarget.className = "btn btn-success btn-md m-1"; // Highlight clicked button
+            event.currentTarget.className = "btn btn-success btn-md m-1"; 
 
             currentProductionChain = []; 
             const quantityInput = document.getElementById('final-product-quantity');
@@ -953,7 +950,6 @@ function displayProductionMethodsForGood(goodName, level, parentRequirementId) {
     console.log(`Displaying production methods for ${goodName} at level ${level}, parentReqId: ${JSON.stringify(parentRequirementId)}`);
     const chainStepsContainer = document.getElementById('chain-steps-container');
 
-    // Create or find a container for this specific choice
     let containerIdSuffix;
     if (parentRequirementId) {
         const pGood = (parentRequirementId.parentGood || 'unknownParentGood').replace(/\W/g, '_');
@@ -967,7 +963,6 @@ function displayProductionMethodsForGood(goodName, level, parentRequirementId) {
     
     let levelContainer = document.getElementById(levelContainerId);
 
-    // Clear previous content if any (important if re-displaying this level)
     if (levelContainer) {
         levelContainer.innerHTML = ''; 
     } else {
@@ -1008,7 +1003,6 @@ function displayProductionMethodsForGood(goodName, level, parentRequirementId) {
         }
     }
     
-    // Card Header for the prompt
     const cardHeader = document.createElement('div');
     cardHeader.className = 'card-header';
     const promptEl = document.createElement('h5'); 
@@ -1026,12 +1020,10 @@ function displayProductionMethodsForGood(goodName, level, parentRequirementId) {
     cardHeader.appendChild(promptEl);
     levelContainer.appendChild(cardHeader);
 
-    // Card Body for the buttons
     const cardBody = document.createElement('div');
     cardBody.className = 'card-body';
     levelContainer.appendChild(cardBody);
     
-    // Clear UI for subsequent levels (deeper than current)
     const allChoiceContainers = chainStepsContainer.querySelectorAll('div[id^="level-"]');
     allChoiceContainers.forEach(container => {
         const containerLevel = parseInt(container.id.split('-')[1]);
@@ -1039,14 +1031,13 @@ function displayProductionMethodsForGood(goodName, level, parentRequirementId) {
             let currentAncestor = container.parentElement;
             let isDescendant = false;
             while(currentAncestor && currentAncestor !== chainStepsContainer) {
-                // If the container is a direct child of the card-body of the current levelContainer, it's a descendant.
-                if (currentAncestor.classList && currentAncestor.classList.contains('card-body') && currentAncestor.parentElement.id === levelContainerId) {
+                if (currentAncestor.id === levelContainerId) {
                     isDescendant = true;
                     break;
                 }
                 currentAncestor = currentAncestor.parentElement;
             }
-            if (isDescendant) { 
+            if (isDescendant || container.id.startsWith(levelContainerId + "_")) { 
                  container.remove();
             }
         }
@@ -1069,30 +1060,23 @@ function displayProductionMethodsForGood(goodName, level, parentRequirementId) {
         if (chainEntry.education_required) {
             button.textContent += ` (${chainEntry.education_required})`;
         }
-        button.className = "btn btn-secondary btn-md m-1"; // Default class
-        button.addEventListener('click', (event) => { // event argument
+        button.className = "btn btn-secondary btn-md m-1"; 
+        button.addEventListener('click', (event) => { 
             console.log(`Selected method for ${goodName} (L${level}): ${chainEntry.name} (ID: ${chainEntry.id})`);
 
-            // Highlight logic:
             const allMethodButtons = cardBody.querySelectorAll('button');
             allMethodButtons.forEach(btn => {
                 btn.className = "btn btn-secondary btn-md m-1";
             });
-            event.currentTarget.className = "btn btn-success btn-md m-1"; // Highlight clicked button
+            event.currentTarget.className = "btn btn-success btn-md m-1"; 
             
             let requiredQtyForThisStep;
-            // The logic for requiredQtyForThisStep was slightly different in the prompt,
-            // ensuring it uses the current value from the input for level 0, or the existing value for other levels.
-            // The original line from the prompt is:
-            // const desiredQuantity = (level === 0 && quantityInput) ? (parseInt(quantityInput.value) || 1) : currentProductionChain.find(s => s.level === level && s.targetGood === goodName && s.satisfiesInputForParent === parentRequirementId)?.requiredOutputQuantity || 1;
-            // This will be adapted to:
             if (level === 0) {
                 const quantityInput = document.getElementById('final-product-quantity');
                 requiredQtyForThisStep = (quantityInput) ? (parseInt(quantityInput.value) || 1) : 1;
             } else {
-                // Find the step being configured to get its existing requiredOutputQuantity if available
                 const stepEntry = currentProductionChain.find(s => s.level === level && s.targetGood === goodName && JSON.stringify(s.satisfiesInputForParent) === JSON.stringify(parentRequirementId));
-                requiredQtyForThisStep = stepEntry ? stepEntry.requiredOutputQuantity : 1; // Default to 1 if not found, though it should be there.
+                requiredQtyForThisStep = stepEntry ? stepEntry.requiredOutputQuantity : 1; 
             }
 
             updateChainConfiguration(level, chainEntry.id, goodName, requiredQtyForThisStep, parentRequirementId, true);
@@ -1136,133 +1120,154 @@ function displayProductionMethodsForGood(goodName, level, parentRequirementId) {
 
 
 function calculateFullChain() {
-    console.log("Calculating full chain...", currentProductionChain);
+    console.log("Calculating full chain with 'per worker shift' logic...", currentProductionChain);
     const resultsArea = document.getElementById('calculation-results-area');
+    resultsArea.innerHTML = '<h2>Calculation Results:</h2>'; // Clear previous results first
+    resultsArea.innerHTML += '<p><em>(All production figures and requirements are calculated on a "per shift" basis)</em></p>';
 
-    if (currentProductionChain.length === 0 || !currentProductionChain[0].buildingId) {
-        resultsArea.innerHTML = '<h2>Calculation Results:</h2><p>Please select the final product and its production method first.</p>';
-        return;
-    }
 
-    currentProductionChain.sort((a, b) => a.level - b.level);
-
-    const finalProductStep = currentProductionChain.find(step => step.level === 0);
-    if (finalProductStep) {
-        const quantityInput = document.getElementById('final-product-quantity');
-        finalProductStep.requiredOutputQuantity = parseInt(quantityInput.value) || 1;
-    } else {
-        resultsArea.innerHTML = '<h2>Calculation Results:</h2><p>Error: Final product step (level 0) not found.</p>';
+    if (currentProductionChain.length === 0 ) { 
+         resultsArea.innerHTML += "<p>Please select the final product first.</p>";
         return;
     }
     
-    for (let i = 0; i < currentProductionChain.length; i++) { 
-       const step = currentProductionChain[i];
+    const finalProductStep = currentProductionChain.find(step => step.level === 0);
+    if (!finalProductStep) { // Should not happen if length > 0 and it's sorted, but good check
+        resultsArea.innerHTML += "<p>Error: Final product step (level 0) not found.</p>";
+        return;
+    }
+    // Ensure final product quantity is up-to-date from input
+    const quantityInput = document.getElementById('final-product-quantity');
+    finalProductStep.requiredOutputQuantity = parseInt(quantityInput.value) || 1;
+    if (finalProductStep.requiredOutputQuantity <= 0) finalProductStep.requiredOutputQuantity =1;
 
-       if (!step.buildingId) {
-           step.numBuildings = 0;
-           step.originalWorkersAtFullEfficiency = 0;
-           step.adjustedWorkersForTargetOutput = 0;
-           step.profitForThisStep = 0;
-           step.inputsForThisStep = [];
-           step.isHighSchoolWorkers = false;
-           step.actualOutputAtFullEfficiency = 0;
-           step.requiredEfficiencyPercent = 0;
-           console.warn(`Skipping calculation for ${step.targetGood} at level ${step.level} - no building selected.`);
-           continue; 
-       }
-       const chainEntry = productionChains.find(c => c.id === step.buildingId);
-       if (!chainEntry) {
-           console.error(`Error: Building data for ID ${step.buildingId} not found.`);
-           step.numBuildings = 0; 
-           step.originalWorkersAtFullEfficiency = 0;
-           step.adjustedWorkersForTargetOutput = 0;
-           step.profitForThisStep = 0;
-           step.inputsForThisStep = [];
-           step.isHighSchoolWorkers = false;
-           step.actualOutputAtFullEfficiency = 0;
-           step.requiredEfficiencyPercent = 0;
-           continue;
-       }
-
-       // 1. Calculate numBuildings
-       if (chainEntry.output.quantity <= 0.00001) { 
-           step.numBuildings = step.requiredOutputQuantity > 0.00001 ? Infinity : 0;
-       } else {
-           step.numBuildings = Math.ceil(step.requiredOutputQuantity / chainEntry.output.quantity);
-       }
-       if (step.requiredOutputQuantity < 0.00001) step.numBuildings = 0;
-
-
-       // 2. Calculate originalWorkersAtFullEfficiency
-       step.originalWorkersAtFullEfficiency = step.numBuildings * chainEntry.workers;
-       step.profitForThisStep = step.numBuildings * (chainEntry.profit_per_workday || 0); 
-
-       // 3. Populate isHighSchoolWorkers
-       step.isHighSchoolWorkers = (chainEntry.education_required === 'HS');
-
-       // 4. Calculate actualOutputAtFullEfficiency
-       step.actualOutputAtFullEfficiency = step.numBuildings * chainEntry.output.quantity;
-
-       // 5. Calculate requiredEfficiencyPercent
-       if (step.actualOutputAtFullEfficiency < 0.00001) { 
-           if (step.requiredOutputQuantity < 0.00001) {
-               step.requiredEfficiencyPercent = 0; 
-           } else {
-               step.requiredEfficiencyPercent = (step.numBuildings > 0 && chainEntry.output.quantity > 0.00001) ? 100 : 0;
-               if (step.requiredOutputQuantity > 0.00001 && step.actualOutputAtFullEfficiency < 0.00001) {
-                   step.requiredEfficiencyPercent = 100; 
-               } else if (step.requiredOutputQuantity < 0.00001) {
-                   step.requiredEfficiencyPercent = 0;
-               }
-           }
-       } else { 
-           step.requiredEfficiencyPercent = (step.requiredOutputQuantity / step.actualOutputAtFullEfficiency) * 100;
-       }
-       step.requiredEfficiencyPercent = Math.max(0, Math.min(step.requiredEfficiencyPercent, 100));
-
-
-       // 6. Calculate adjustedWorkersForTargetOutput
-       step.adjustedWorkersForTargetOutput = Math.ceil((step.requiredEfficiencyPercent / 100) * step.originalWorkersAtFullEfficiency);
-       step.adjustedWorkersForTargetOutput = Math.min(step.adjustedWorkersForTargetOutput, step.originalWorkersAtFullEfficiency);
-       step.adjustedWorkersForTargetOutput = Math.max(0, step.adjustedWorkersForTargetOutput);
-
-
-       // 7. Inputs for this step (already exists, ensure it's using step.numBuildings)
-       step.inputsForThisStep = (chainEntry.inputs || []).map(inputDef => ({
-           good: inputDef.good,
-           quantity: step.numBuildings * inputDef.quantity 
-       }));
-
-       // 8. Propagate demand to child steps (already exists)
-       step.inputsForThisStep.forEach(calculatedInput => {
-           const childSteps = currentProductionChain.filter(cs => 
-               cs.level === step.level + 1 &&
-               cs.targetGood === calculatedInput.good &&
-               cs.satisfiesInputForParent &&
-               cs.satisfiesInputForParent.parentBuildingId === step.buildingId &&
-               cs.satisfiesInputForParent.good === calculatedInput.good 
-           );
-
-           if (childSteps.length > 0) {
-               childSteps.forEach(childStep => {
-                   childStep.requiredOutputQuantity = calculatedInput.quantity; 
-                   console.log(`Set required quantity for L${childStep.level} ${childStep.targetGood} (for ${step.buildingId}) to ${childStep.requiredOutputQuantity}`);
-               });
-           } else {
-               console.log(`No child step found to satisfy input ${calculatedInput.good} for ${step.buildingId} at level ${step.level + 1}`);
-           }
-       });
+    if (!finalProductStep.buildingId){ // If level 0 good is selected but building method is not
+        resultsArea.innerHTML += "<p>Please select a production method for the final product.</p>";
+        // Initialize fields for display even if incomplete
+        finalProductStep.workersNeededForStepOutput = 0;
+        finalProductStep.numBuildingsForStep = 0;
+        finalProductStep.isHighSchoolWorkers = false;
+        finalProductStep.profitForThisStep = 0;
+        finalProductStep.maxOutputIfFullyStaffed = 0;
+        finalProductStep.buildingCapacityUtilization = 0;
+        finalProductStep.inputsForThisStep = [];
+        displayChainResults(); // Display the incomplete chain
+        return;
     }
 
 
-    console.log("Chain after calculation:", currentProductionChain);
+    currentProductionChain.sort((a, b) => a.level - b.level);
+
+    for (let i = 0; i < currentProductionChain.length; i++) {
+        const step = currentProductionChain[i];
+
+        if (!step.buildingId) {
+            step.workersNeededForStepOutput = 0;
+            step.numBuildingsForStep = 0;
+            step.isHighSchoolWorkers = false; 
+            step.profitForThisStep = 0;
+            step.maxOutputIfFullyStaffed = 0;
+            step.buildingCapacityUtilization = 0;
+            step.inputsForThisStep = [];
+            console.warn(`Skipping calculation for ${step.targetGood} at level ${step.level} - no building selected.`);
+            continue; 
+        }
+
+        const chainEntry = productionChains.find(c => c.id === step.buildingId);
+        if (!chainEntry) {
+            console.error(`Error: Building data for ID ${step.buildingId} not found.`);
+            step.workersNeededForStepOutput = 0; 
+            step.numBuildingsForStep = 0;
+            step.isHighSchoolWorkers = false;
+            step.profitForThisStep = 0;
+            step.maxOutputIfFullyStaffed = 0;
+            step.buildingCapacityUtilization = 0;
+            step.inputsForThisStep = [];
+            continue;
+        }
+
+        // --- Core Calculations for the step based on "per worker shift" logic ---
+        if (step.requiredOutputQuantity < 0.00001) { 
+            step.workersNeededForStepOutput = 0;
+        } else if (!chainEntry.output || chainEntry.output.quantity < 0.00001) { 
+            step.workersNeededForStepOutput = Infinity; 
+        } else {
+            // output.quantity is output per worker shift
+            step.workersNeededForStepOutput = Math.ceil(step.requiredOutputQuantity / chainEntry.output.quantity);
+        }
+
+        if (step.workersNeededForStepOutput === 0) {
+            step.numBuildingsForStep = 0;
+        } else if (step.workersNeededForStepOutput === Infinity) {
+            step.numBuildingsForStep = Infinity;
+        } else if (!chainEntry.workers || chainEntry.workers < 0.00001) { 
+            step.numBuildingsForStep = Infinity; 
+        } else {
+            step.numBuildingsForStep = Math.ceil(step.workersNeededForStepOutput / chainEntry.workers);
+        }
+        
+        // Handle Infinity cases for subsequent calculations
+        if (step.numBuildingsForStep === Infinity || step.workersNeededForStepOutput === Infinity) {
+            step.isHighSchoolWorkers = (chainEntry.education_required === 'HS');
+            step.profitForThisStep = 0; 
+            step.maxOutputIfFullyStaffed = (step.workersNeededForStepOutput === Infinity && chainEntry.output.quantity > 0) ? Infinity : 0;
+            step.buildingCapacityUtilization = 0; // Or 100 if output required and impossible? For now 0 for error states.
+            step.inputsForThisStep = (chainEntry.inputs || []).map(inputDef => ({
+                good: inputDef.good,
+                quantity: Infinity 
+            }));
+        } else {
+            step.isHighSchoolWorkers = (chainEntry.education_required === 'HS');
+            // profit_per_workday is now per worker shift
+            step.profitForThisStep = step.workersNeededForStepOutput * (chainEntry.profit_per_workday || 0);
+            
+            // Max output if these numBuildingsForStep are staffed by their max workers (chainEntry.workers)
+            // Each worker produces chainEntry.output.quantity
+            step.maxOutputIfFullyStaffed = step.numBuildingsForStep * chainEntry.workers * (chainEntry.output?.quantity || 0);
+
+            if (step.maxOutputIfFullyStaffed < 0.00001) {
+                step.buildingCapacityUtilization = (step.requiredOutputQuantity < 0.00001) ? 0 : 100;
+            } else {
+                step.buildingCapacityUtilization = (step.requiredOutputQuantity / step.maxOutputIfFullyStaffed) * 100;
+            }
+            step.buildingCapacityUtilization = Math.max(0, Math.min(step.buildingCapacityUtilization, 100));
+
+            // Inputs are per worker shift, so multiply by total workers needed for this step's output
+            step.inputsForThisStep = (chainEntry.inputs || []).map(inputDef => ({
+                good: inputDef.good,
+                quantity: step.workersNeededForStepOutput * inputDef.quantity 
+            }));
+        }
+
+        // Propagate demand to child steps
+        step.inputsForThisStep.forEach(calculatedInput => {
+            const childStep = currentProductionChain.find(cs => 
+                cs.level === step.level + 1 &&
+                cs.targetGood === calculatedInput.good &&
+                cs.satisfiesInputForParent &&
+                cs.satisfiesInputForParent.parentBuildingId === step.buildingId &&
+                cs.satisfiesInputForParent.good === calculatedInput.good // Ensure this 'good' matches the child's targetGood
+            );
+
+            if (childStep) {
+                if (calculatedInput.quantity === Infinity) {
+                     childStep.requiredOutputQuantity = Infinity;   
+                } else {
+                    childStep.requiredOutputQuantity = (childStep.requiredOutputQuantity === Infinity) ? Infinity : (childStep.requiredOutputQuantity || 0) + calculatedInput.quantity;
+                }
+                 console.log(`Set/Accumulated required quantity for L${childStep.level} ${childStep.targetGood} (for ${step.buildingId}) to ${childStep.requiredOutputQuantity}`);
+            }
+        });
+    }
+
+    console.log("Chain after 'per worker shift' calculation:", currentProductionChain);
     displayChainResults(); 
 }
 
 function displayChainResults() {
     const resultsArea = document.getElementById('calculation-results-area');
     resultsArea.innerHTML = '<h2>Calculation Results:</h2>'; 
-    resultsArea.innerHTML += '<p><em>(All production figures and requirements are calculated on a "per day" basis)</em></p>'; 
+    resultsArea.innerHTML += '<p><em>(All production figures and requirements are calculated on a "per shift" basis)</em></p>'; 
 
     if (currentProductionChain.length === 0) {
         resultsArea.innerHTML += "<p>No chain configured or calculated yet.</p>";
@@ -1284,31 +1289,30 @@ function displayChainResults() {
         } else { 
             const educationLabel = step.isHighSchoolWorkers ? " (HS)" : " (Regular)";
             stepHtml += `<p><strong>Building:</strong> ${chainEntry.name}</p>`; 
-            stepHtml += `<p><strong>Target Output for this step:</strong> ${step.requiredOutputQuantity.toFixed(2)} ${step.targetGood}</p>`;
-            stepHtml += `<p><strong>Number of Buildings:</strong> ${step.numBuildings.toFixed(0)}</p>`; 
-            stepHtml += `<p><strong>Actual Output (at 100% for ${step.numBuildings.toFixed(0)} buildings):</strong> ${step.actualOutputAtFullEfficiency.toFixed(2)} ${step.targetGood}</p>`;
+            stepHtml += `<p><strong>Target Output for this step:</strong> ${step.requiredOutputQuantity === Infinity ? "Unachievable" : step.requiredOutputQuantity.toFixed(2)} ${step.targetGood}</p>`;
+            stepHtml += `<p><strong>Number of Buildings:</strong> ${step.numBuildingsForStep === Infinity ? "Unachievable/Infinite" : step.numBuildingsForStep.toFixed(0)}</p>`; 
+            stepHtml += `<p><strong>Max Output (at 100% for ${step.numBuildingsForStep === Infinity ? "these" : step.numBuildingsForStep.toFixed(0)} buildings):</strong> ${step.maxOutputIfFullyStaffed === Infinity ? "Infinite (theoretical)" : step.maxOutputIfFullyStaffed.toFixed(2)} ${step.targetGood}</p>`;
             
-            let efficiencyDisplay = step.requiredEfficiencyPercent.toFixed(1) + "%";
-            if (step.requiredEfficiencyPercent === Infinity || (step.actualOutputAtFullEfficiency < 0.0001 && step.requiredOutputQuantity > 0.0001 && step.numBuildings > 0) ) {
+            let efficiencyDisplay = step.buildingCapacityUtilization.toFixed(1) + "%";
+            if (step.buildingCapacityUtilization === Infinity || (step.maxOutputIfFullyStaffed < 0.0001 && step.requiredOutputQuantity > 0.0001 && step.numBuildingsForStep > 0) || step.numBuildingsForStep === Infinity && step.requiredOutputQuantity > 0) {
                 efficiencyDisplay = "N/A (target unachievable or no production capacity with this setup)";
-            } else if (step.numBuildings === 0 && step.requiredOutputQuantity > 0.0001) {
+            } else if (step.numBuildingsForStep === 0 && step.requiredOutputQuantity > 0.0001) {
                  efficiencyDisplay = "N/A (0 buildings cannot produce output)";
             }
-            stepHtml += `<p><strong>Required Efficiency for Target:</strong> ${efficiencyDisplay}</p>`;
+            stepHtml += `<p><strong>Building Capacity Utilization:</strong> ${efficiencyDisplay}</p>`;
             
-            stepHtml += `<p><strong>Workers at 100% Efficiency:</strong> ${step.originalWorkersAtFullEfficiency.toFixed(0)}${educationLabel}</p>`;
-            stepHtml += `<p><strong>Adjusted Workers for Target Output:</strong> ${step.adjustedWorkersForTargetOutput.toFixed(0)}${educationLabel}</p>`;
+            stepHtml += `<p><strong>Workers Needed for Target Output:</strong> ${step.workersNeededForStepOutput === Infinity ? "Unachievable/Infinite" : step.workersNeededForStepOutput.toFixed(0)}${educationLabel}</p>`;
             
             if (step.inputsForThisStep && step.inputsForThisStep.length > 0) {
                 stepHtml += "<p><strong>Inputs for this step (total):</strong></p><ul>";
                 step.inputsForThisStep.forEach(input => {
-                    stepHtml += `<li>${input.quantity.toFixed(2)} ${input.good}</li>`;
+                    stepHtml += `<li>${input.quantity === Infinity ? "Infinite (due to unachievable upstream step)" : input.quantity.toFixed(2)} ${input.good}</li>`;
                 });
                 stepHtml += "</ul>";
             } else {
                 stepHtml += "<p><strong>Inputs for this step:</strong> None</p>";
             }
-            stepHtml += `<p><strong>Profit for this step:</strong> $${step.profitForThisStep.toFixed(2)}</p>`;
+            stepHtml += `<p><strong>Profit for this step:</strong> $${step.profitForThisStep === Infinity ? "N/A" : step.profitForThisStep.toFixed(2)}</p>`;
         }
         stepHtml += `</div>`;
         resultsArea.innerHTML += stepHtml;
@@ -1316,43 +1320,55 @@ function displayChainResults() {
 
     resultsArea.innerHTML += "<hr><h3>Overall Chain Summary:</h3>";
     const buildingTotals = {};
-    let totalOriginalRegularWorkers = 0;
-    let totalOriginalHSWorkers = 0;
-    let totalAdjustedRegularWorkers = 0;
-    let totalAdjustedHSWorkers = 0;
+    let totalRegularWorkers = 0; 
+    let totalHSWorkers = 0; 
     let totalProfit = 0;
     const rawMaterialInputs = new Map(); 
+    let isChainPossible = true;
 
     currentProductionChain.forEach(step => {
+        if(step.workersNeededForStepOutput === Infinity || step.numBuildingsForStep === Infinity) {
+            isChainPossible = false;
+        }
         if (step.buildingId) { 
             const chainEntry = productionChains.find(c => c.id === step.buildingId);
             if (chainEntry) { 
-                buildingTotals[chainEntry.name] = (buildingTotals[chainEntry.name] || 0) + step.numBuildings;
+                buildingTotals[chainEntry.name] = (buildingTotals[chainEntry.name] || 0) + (isFinite(step.numBuildingsForStep) ? step.numBuildingsForStep : 0);
             }
-            // Accumulate worker types directly from step properties
-            if (step.isHighSchoolWorkers) { 
-                totalOriginalHSWorkers += step.originalWorkersAtFullEfficiency;
-                totalAdjustedHSWorkers += step.adjustedWorkersForTargetOutput;
-            } else {
-                totalOriginalRegularWorkers += step.originalWorkersAtFullEfficiency;
-                totalAdjustedRegularWorkers += step.adjustedWorkersForTargetOutput;
+            if(isFinite(step.workersNeededForStepOutput)){
+                if (step.isHighSchoolWorkers) { 
+                    totalHSWorkers += step.workersNeededForStepOutput;
+                } else {
+                    totalRegularWorkers += step.workersNeededForStepOutput;
+                }
             }
-            totalProfit += step.profitForThisStep;
+            if(isFinite(step.profitForThisStep)) totalProfit += step.profitForThisStep;
 
             (step.inputsForThisStep || []).forEach(input => {
                 const isProducedInternally = currentProductionChain.some(s => 
                     s.buildingId && s.targetGood === input.good && s.level < step.level 
                 );
                 if (!isProducedInternally) {
-                    rawMaterialInputs.set(input.good, (rawMaterialInputs.get(input.good) || 0) + input.quantity);
+                    if(isFinite(input.quantity)) {
+                        rawMaterialInputs.set(input.good, (rawMaterialInputs.get(input.good) || 0) + input.quantity);
+                    } else {
+                        rawMaterialInputs.set(input.good, Infinity);
+                    }
                 }
             });
         } else { 
             if(step.requiredOutputQuantity > 0.00001){ 
-                 rawMaterialInputs.set(step.targetGood, (rawMaterialInputs.get(step.targetGood) || 0) + step.requiredOutputQuantity);
+                if(isFinite(step.requiredOutputQuantity)){
+                     rawMaterialInputs.set(step.targetGood, (rawMaterialInputs.get(step.targetGood) || 0) + step.requiredOutputQuantity);
+                } else {
+                     rawMaterialInputs.set(step.targetGood, Infinity);
+                }
             }
         }
     });
+    if (!isChainPossible) {
+        resultsArea.innerHTML += '<p style="color:red; font-weight:bold;">Note: This production chain is not possible as configured due to infinite requirements at one or more steps.</p>';
+    }
 
     resultsArea.innerHTML += "<p><strong>Total Buildings by Type:</strong></p><ul>";
     for (const [name, count] of Object.entries(buildingTotals)) {
@@ -1362,29 +1378,24 @@ function displayChainResults() {
     else if (Object.keys(buildingTotals).length === 0) resultsArea.innerHTML += "<li>None (No buildings selected/calculated).</li>";
     resultsArea.innerHTML += "</ul>";
 
-    resultsArea.innerHTML += `<p><strong>Total Original Workers (at 100% efficiency):</strong></p><ul>`;
-    resultsArea.innerHTML += `<li>Regular: ${totalOriginalRegularWorkers.toFixed(0)}</li>`;
-    resultsArea.innerHTML += `<li>High School: ${totalOriginalHSWorkers.toFixed(0)}</li>`;
-    resultsArea.innerHTML += `<li><strong>Overall Total:</strong> ${(totalOriginalRegularWorkers + totalOriginalHSWorkers).toFixed(0)}</li></ul>`;
-
-    resultsArea.innerHTML += `<p><strong>Total Adjusted Workers (for target output):</strong></p><ul>`;
-    resultsArea.innerHTML += `<li>Regular: ${totalAdjustedRegularWorkers.toFixed(0)}</li>`;
-    resultsArea.innerHTML += `<li>High School: ${totalAdjustedHSWorkers.toFixed(0)}</li>`;
-    resultsArea.innerHTML += `<li><strong>Overall Total:</strong> ${(totalAdjustedRegularWorkers + totalAdjustedHSWorkers).toFixed(0)}</li></ul>`;
+    resultsArea.innerHTML += `<p><strong>Total Workers Needed for Chain (Adjusted for Efficiency):</strong></p><ul>`;
+    resultsArea.innerHTML += `<li>Regular: ${totalRegularWorkers.toFixed(0)}</li>`;
+    resultsArea.innerHTML += `<li>High School: ${totalHSWorkers.toFixed(0)}</li>`;
+    resultsArea.innerHTML += `<li><strong>Overall Total:</strong> ${(totalRegularWorkers + totalHSWorkers).toFixed(0)}</li></ul>`;
 
 
     resultsArea.innerHTML += "<p><strong>Total Raw Materials Needed (not produced in chain):</strong></p>";
     if (rawMaterialInputs.size > 0) {
         resultsArea.innerHTML += "<ul>";
         rawMaterialInputs.forEach((quantity, good) => {
-            resultsArea.innerHTML += `<li>${good}: ${quantity.toFixed(2)}</li>`;
+            resultsArea.innerHTML += `<li>${good}: ${quantity === Infinity ? "Infinite (chain impossible)" : quantity.toFixed(2)}</li>`;
         });
         resultsArea.innerHTML += "</ul>";
     } else {
         resultsArea.innerHTML += "<p>None (all inputs are produced within the configured chain, or no inputs/chain configured).</p>";
     }
 
-    resultsArea.innerHTML += `<p><strong>Overall Total Profit for Chain:</strong> $${totalProfit.toFixed(2)}</p>`;
+    resultsArea.innerHTML += `<p><strong>Overall Total Profit for Chain:</strong> $${isFinite(totalProfit) ? totalProfit.toFixed(2) : "N/A (due to impossible chain)"}</p>`;
 }
 
 window.onload = function() {
