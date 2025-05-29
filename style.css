@@ -44,3 +44,108 @@ h2 {
 #output-section {
     border-left: 5px solid #2ecc71; /* Green */
 }
+
+/* Added styles for chain configuration UI */
+#chain-config-area {
+    background-color: #f9f9f9;
+    padding: 15px;
+    border-radius: 5px;
+    border: 1px solid #ddd;
+    margin-bottom: 20px;
+}
+
+#chain-config-area h2, #chain-config-area h3 {
+    color: #3498db;
+    border-bottom: 1px solid #ecf0f1;
+    padding-bottom: 5px;
+    margin-top: 10px;
+}
+
+#end-product-selection-buttons button,
+#chain-steps-container button {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    margin: 5px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.95em;
+}
+
+#end-product-selection-buttons button:hover,
+#chain-steps-container button:hover {
+    background-color: #2980b9;
+}
+
+/* Styling for containers of choices at each level */
+#chain-steps-container > div[id^="level-"] { /* Targets divs whose ID starts with "level-" */
+    border: 1px dashed #bdc3c7;
+    padding: 10px;
+    margin-top: 15px;
+    background-color: #ffffff;
+    border-radius: 4px;
+}
+
+#chain-steps-container > div[id^="level-"] h3 {
+    font-size: 1.1em;
+    color: #2c3e50;
+    margin-top: 0;
+}
+
+#calculate-chain-button {
+    background-color: #2ecc71; /* Green */
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    font-size: 1.1em;
+    border-radius: 5px;
+    cursor: pointer;
+    display: block; /* Make it take its own line */
+    margin: 20px auto 10px auto; /* Center it somewhat */
+}
+
+#calculate-chain-button:hover {
+    background-color: #27ae60;
+}
+
+#calculation-results-area {
+    background-color: #fff;
+    padding: 15px;
+    border-radius: 5px;
+    border: 1px solid #ddd;
+    margin-top: 20px;
+}
+
+#calculation-results-area h2 {
+     color: #3498db;
+}
+#calculation-results-area h3 {
+     color: #2c3e50;
+     border-bottom: 1px solid #eee;
+     padding-bottom: 3px;
+     margin-top: 15px;
+}
+#calculation-results-area h4 {
+    color: #333;
+    font-size: 1.05em;
+    margin-bottom: 5px;
+}
+
+#calculation-results-area div[style*="border"] { /* Targets step detail divs */
+    border-color: #e0e0e0 !important; /* Override inline style if needed, or ensure JS uses classes */
+    background-color: #fdfdfd;
+}
+
+#final-product-quantity {
+    padding: 5px;
+    margin-left: 5px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+}
+
+/* General label styling if needed */
+label {
+    font-weight: bold;
+    margin-right: 5px;
+}
