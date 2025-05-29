@@ -10,46 +10,6 @@
     <div id="main-container">
         <h1>Tropico 6 Production Planner</h1>
 
-        <!-- Old sections hidden for now -->
-        <section id="input-section" style="display:none;">
-            <h2>Input</h2>
-            <div>
-                <label for="production-chain-select">Select Production Chain:</label>
-                <select id="production-chain-select">
-                    <!-- Options will be populated by JavaScript -->
-                </select>
-            </div>
-            <div>
-                <label for="workers-input">Number of Available Workers:</label>
-                <input type="number" id="workers-input" value="0" min="0">
-            </div>
-            <div>
-                <label for="desired-output-input">Desired Output Quantity (of selected chain's product):</label>
-                <input type="number" id="desired-output-input" value="0" min="0">
-            </div>
-            <div style="font-size: 0.9em; margin-top: 5px; color: #555;">
-                <em>Note: If "Desired Output Quantity" is set (>0), calculations will be based on that. Otherwise, "Number of Available Workers" will be used.</em>
-            </div>
-            <!-- Other input fields will be added later -->
-        </section>
-
-        <section id="controls-section" style="display:none;">
-            <h2>Controls</h2>
-            <div>
-                <input type="checkbox" id="efficiency-toggle">
-                <label for="efficiency-toggle">Enable Productivity Boost (25% more output)</label>
-            </div>
-            <button id="calculate-button" style="margin-top: 10px;">Calculate</button>
-            <!-- Other control toggles will be added later -->
-        </section>
-
-        <section id="output-section" style="display:none;">
-            <h2>Output</h2>
-            <div id="result-display">
-                <!-- Results will be displayed here -->
-            </div>
-        </section>
-
         <!-- New UI for chain configuration -->
         <div id="chain-config-area">
             <div>
